@@ -1,16 +1,56 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { PlusIcon, MapPinIcon, PhotoIcon } from '@heroicons/react/24/outline';
 import { useState } from 'react';
+import { api } from '@/lib/api';
 
 export default function AddLocationPage() {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     name: '',
     address: '',
     amenities: [] as string[],
+    hours: '',
     notes: ''
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+
+  const handleAmenityToggle = (amenity: string) => {
+    setFormData(prev => ({
+      ...prev,
+      amenities: prev.amenities.includes(amenity)
+        ? prev.amenities.filter(a => a !== amenity)
+        : [...prev.amenities, amenity]
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      await api.createStation({
+        name: formData.name,
+        address: formData.address,
+        amenities: formData.amenities,
+        hours: formData.hours || undefined,
+      });
+
+      setSuccess(true);
+      setTimeout(() => {
+        router.push('/nearby');
+      }, 1500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add station');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50">
@@ -37,12 +77,25 @@ export default function AddLocationPage() {
         <p className="text-gray-600 mb-8">Help other parents by adding a changing station location</p>
 
         <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
-          <form className="space-y-6">
+          {success && (
+            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl text-green-800">
+              ✓ Station added successfully! Redirecting...
+            </div>
+          )}
+
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-800">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Location Name</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Location Name *</label>
               <input
                 type="text"
                 placeholder="e.g., Target Store"
+                required
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500"
                 value={formData.name}
                 onChange={(e) => setFormData({...formData, name: e.target.value})}
@@ -50,12 +103,13 @@ export default function AddLocationPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Address *</label>
               <div className="relative">
                 <MapPinIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="text"
                   placeholder="123 Main St, City, State"
+                  required
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500"
                   value={formData.address}
                   onChange={(e) => setFormData({...formData, address: e.target.value})}
@@ -64,11 +118,27 @@ export default function AddLocationPage() {
             </div>
 
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Hours</label>
+              <input
+                type="text"
+                placeholder="e.g., Mon-Fri 9am-9pm"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500"
+                value={formData.hours}
+                onChange={(e) => setFormData({...formData, hours: e.target.value})}
+              />
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Amenities</label>
               <div className="grid grid-cols-2 gap-3">
                 {['Changing Table', 'Wipes Available', 'Disposal Bin', 'Private Room', 'Clean', 'Spacious'].map(amenity => (
                   <label key={amenity} className="flex items-center gap-2 p-3 border border-gray-300 rounded-xl hover:bg-gray-50 cursor-pointer">
-                    <input type="checkbox" className="rounded border-gray-300 text-pink-600 focus:ring-pink-500" />
+                    <input 
+                      type="checkbox" 
+                      className="rounded border-gray-300 text-pink-600 focus:ring-pink-500"
+                      checked={formData.amenities.includes(amenity)}
+                      onChange={() => handleAmenityToggle(amenity)}
+                    />
                     <span className="text-sm">{amenity}</span>
                   </label>
                 ))}
@@ -86,19 +156,12 @@ export default function AddLocationPage() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Photos</label>
-              <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-pink-400 transition-colors cursor-pointer">
-                <PhotoIcon className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-600">Click to upload photos</p>
-              </div>
-            </div>
-
             <button
               type="submit"
-              className="w-full py-4 bg-gradient-to-r from-pink-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold text-lg"
+              disabled={loading || success}
+              className="w-full py-4 bg-gradient-to-r from-pink-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Submit Location
+              {loading ? 'Adding Station...' : success ? 'Added!' : 'Submit Location'}
             </button>
           </form>
         </div>
